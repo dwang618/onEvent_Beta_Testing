@@ -1,0 +1,189 @@
+{% load static %}
+{% load onevent_tags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Event Details - OnEvent</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+      <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">OnEvent</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ml-auto">
+        {% if user|has_group:"PMA"%}
+            <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">All Events (Admin Only)</a></li>
+        {% endif %}
+            <li class="nav-item"><a class="nav-link" href="/dashboard/">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'upload' %}">Upload</a></li>
+            <li class="nav-item">
+            <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="nav-link btn btn-link" style="padding: 10 0 0 0; border: none; background: none; color: inherit; cursor: pointer;">
+                Logout
+                </button>
+            </form>
+            </li>
+
+
+        </ul>
+    </div>
+    </nav>
+
+<div class="container mt-5" style="padding-bottom: 4rem;">
+<div class="row">
+    <div class="col-md-8">
+        <h1 class="mb-4">{{ event.title }}</h1>
+        <p class="lead">{{ event.description }}</p>
+        <p><strong>Date:</strong> {{ event.date }}</p>
+
+        <hr>
+
+        <h2 class="mt-4">Chat</h2>
+        <form method="post" class="mb-4">
+            {% csrf_token %}
+            <div class="mb-3">
+                {{ form.content }}
+            </div>
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+
+        <ul class="list-group">
+            {% for message in messages %}
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ message.author.username }}</strong>
+                            <small class="text-muted">{{ message.timestamp }}</small>
+                        </div>
+                        <div class="btn-group">
+                            <!-- Like Form -->
+                            <form method="post" class="mb-0 me-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="like_message_id" value="{{ message.id }}">
+                                {% if user in message.likes.all %}
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        ❤️ Likes - {{ message.likes.count }}
+                                    </button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        ❤️ Likes - {{ message.likes.count }}
+                                    </button>
+                                {% endif %}
+                            </form>
+                            <!-- Delete Form (only for the author) -->
+                            {% if user == message.author or user|has_group:"PMA" %}
+                                <form method="post" class="mb-0">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="delete_message_id" value="{{ message.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        🗑️ Delete
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <p class="mb-1">{{ message.content }}</p>
+                </li>
+            {% empty %}
+                <li class="list-group-item text-center">No messages yet.</li>
+            {% endfor %}
+        </ul>
+        <div class="mt-4 text-center">
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary">Return to Dashboard</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <h2 class="mb-4">Attendees</h2>
+        <!-- RSVP List -->
+        <ul class="list-group mb-3">
+            {% for user in event.rsvps.all %}
+                <li class="list-group-item d-flex w-100 align-items-center">
+                    {% if user.socialaccount_set.exists %}
+                        {% with user.socialaccount_set.all|first as account %}
+                            {% if account.provider == 'google' %}
+                                <img src="{{ account.extra_data.picture }}"
+                                        alt="{{ user.email }}'s Profile Picture"
+                                        class="img-thumbnail rounded-circle me-3"
+                                        style="max-width: 50px;">
+                            {% else %}
+                                <img src="{% static 'default-profile.png' %}"
+                                        alt="Default Profile Picture"
+                                        class="img-thumbnail rounded-circle me-3"
+                                        style="max-width: 50px;">
+                            {% endif %}
+                        {% endwith %}
+                    {% else %}
+                        <img src="{% static 'default-profile.png' %}"
+                                alt="Default Profile Picture"
+                                class="img-thumbnail rounded-circle me-3"
+                                style="max-width: 50px;">
+                    {% endif %}
+                    {% if user.email %}
+                        <p class="mb-0 ">{{ user.email }}</p>
+                    {% else %}
+                        <p class="mb-0">{{ user.username }}</p>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+        <!-- RSVP Button -->
+        {% if request.user.is_authenticated and event.user != request.user %}
+            <form method="post" class="mb-3">
+                {% csrf_token %}
+                <input type="hidden" name="rsvp_id">
+                <button type="submit" class="btn btn-primary">
+                    {% if request.user in event.rsvps.all %}
+                        Cancel RSVP
+                    {% else %}
+                        RSVP
+                    {% endif %}
+                </button>
+            </form>
+        {% endif %}
+
+        <div class="mt-4">
+            <h2>Uploads</h2>
+            <ul class="list-group">
+                {% for upload in uploads %}
+                    <li class="list-group-item">
+                        <strong>{{ upload.title|default:"No title provided" }}</strong>
+                        <p>{{ upload.description|default:"No description provided." }}</p>
+                        <p>File Type: {{ upload.file_type|default:"No file type provided." }}</p>
+                        <a href="{{ upload.file.url }}" class="btn btn-primary btn-sm" target="_blank">View File</a>
+                    </li>
+                {% empty %}
+                    <li class="list-group-item text-muted">No uploads for this event.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+
+
+    </div>
+</div>
+
+        <!-- Footer -->
+<footer style="margin-top: auto; width: 100%; background-color: #f8f9fa; padding: 1rem 0; position: fixed; bottom: 0; left: 0; text-align: center; box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);">
+    <div class="container">
+      <span style="color: #6c757d;">This system is a class project. The system is not monitored, and no real information should be submitted.</span>
+    </div>
+  </footer>
+    </div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+</body>
+</html>

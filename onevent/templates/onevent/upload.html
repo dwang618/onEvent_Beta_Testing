@@ -1,0 +1,156 @@
+{% load static %}
+{% load onevent_tags %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Image Upload</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">OnEvent</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ml-auto">
+        {% if user|has_group:"PMA"%}
+          <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">All Events (Admin Only)</a></li>
+        {% endif %}
+          <li class="nav-item"><a class="nav-link" href="/dashboard/">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'upload' %}">Upload</a></li>
+          <li class="nav-item">
+            <form action="{% url 'logout' %}" method="post" style="display: inline;">
+              {% csrf_token %}
+              <button type="submit" class="nav-link btn btn-link" style="padding: 10 0 0 0; border: none; background: none; color: inherit; cursor: pointer;">
+                Logout
+              </button>
+            </form>
+          </li>
+
+
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container mt-5" style="padding-bottom: 4rem;">
+      <h1 class="text-center">Upload Files</h1>
+      <hr>
+
+      <!-- File Upload Form -->
+      <form action="{% url 'upload' %}" method="post" enctype="multipart/form-data" class="mb-4">
+          {% csrf_token %}
+          <div class="form-group">
+              <!-- Title Input -->
+              <label for="file_title" class="font-weight-bold">Title</label>
+              <div class="form-group">
+                  <input type="text" placeholder="Title (optional)" id="file_title" name="file_title"/>
+              </div>
+
+              <!-- Description Input -->
+              <label for="file_description" class="font-weight-bold">Description</label>
+              <div class="form-group">
+                  <textarea class="form-control" id="file_description" name="file_description" rows="3" placeholder="Description"></textarea>
+              </div>
+
+              <!-- File Input -->
+              <label for="image_file" class="font-weight-bold">Choose a file</label>
+              <div class="custom-file">
+                  <!-- File input field -->
+                  <input type="file" class="custom-file-input" id="image_file" name="image_file">
+                  <!-- Label that will display the chosen file name -->
+                  <label class="custom-file-label" for="image_file">Choose a file...</label>
+              </div>
+
+              <!-- Associate with an event -->
+
+              <label for="event_id" class="font-weight-bold">Associate with Event</label>
+              <div class="form-group">
+                  <select name="event_id" id="event_id" class="form-control">
+                      <option value="no_event" selected>No Event Association</option>
+                      {% for event in events %}
+                          <option value="{{ event.id }}">{{ event.title }}</option>
+                      {% endfor %}
+                  </select>
+              </div>
+
+              <!-- File Type Dropdown (Keywords) -->
+              <label for="event_types" class="font-weight-bold">File Type</label>
+              <div class="form-group">
+                <select name="file_type" id="event_type" class="form-control" required>
+                  <option value="" disabled selected>Choose an option...</option>
+                  <option value="Map">Map</option>
+                  <option value="Minutes">Minutes</option>
+                  <option value="Budgeting">Budgeting</option>
+                  <option value="Catering">Catering</option>
+                  <option value="Contact">Contact</option>
+                  <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div  class ="form-group text-center ">
+              <button type ="submit"class ="btn btn-primary ">Upload</button>
+          </div>
+      </form>
+
+      <!-- Uploaded Files List with Delete Button -->
+      <h2 class="mt-4">Uploaded Files</h2>
+      <ul class="list-group">
+          {% for upload in uploaded_files %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <a href="{% url 'upload_details' upload.id %}">
+                      {% if upload.title %}
+                          {{ upload.title }}
+                      {% else %}
+                          {{ upload.file.name }}
+                      {% endif %}
+                  </a>
+                  {% if user|has_group:"PMA" %}
+                      <br>
+                      <small class="text-muted">Uploaded by {{ upload.user }}</small>
+                  {% endif %}
+              </div>
+                  <form action="{% url 'delete_upload' upload.id %}" method="post" style='display:inline;'>
+                      {% csrf_token %}
+                      <button type='submit' class='btn btn-danger btn-sm'>Delete</button>
+                  </form>
+              </li>
+          {% empty %}
+              <li class="list-group-item text-muted">No files uploaded yet.</li>
+          {% endfor %}
+      </ul>
+  </div>
+
+  <!-- Scripts for Bootstrap and jQuery -->
+  <script src ="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src ="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+  <script src ="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <!-- JavaScript to update the label with the selected file name -->
+  <script >
+    // Update label when a file is selected
+    document.getElementById('image_file').addEventListener('change', function (event) {
+        const fileName = event.target.files[0]?.name || 'Choose a file...';
+        const label = event.target.nextElementSibling;
+        label.textContent = fileName;
+    });
+  </script>
+
+<!-- Footer -->
+<footer style="margin-top: auto; width: 100%; background-color: #f8f9fa; padding: 1rem 0; position: fixed; bottom: 0; left: 0; text-align: center; box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);">
+  <div class="container">
+    <span style="color: #6c757d;">This system is a class project. The system is not monitored, and no real information should be submitted.</span>
+  </div>
+</footer>
+
+
+</body>
+</html>

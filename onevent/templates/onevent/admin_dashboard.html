@@ -1,0 +1,520 @@
+{% load onevent_tags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Admin Dashboard - OnEvent</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">OnEvent</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ml-auto">
+        {% if user|has_group:"PMA"%}
+          <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">All Events (Admin Only)</a></li>
+        {% endif %}
+          <li class="nav-item"><a class="nav-link" href="/dashboard/">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="{% url 'upload' %}">Upload</a></li>
+          <li class="nav-item">
+            <form action="{% url 'logout' %}" method="post" style="display: inline;">
+              {% csrf_token %}
+              <button type="submit" class="nav-link btn btn-link" style="padding: 10 0 0 0; border: none; background: none; color: inherit; cursor: pointer;">
+                Logout
+              </button>
+            </form>
+          </li>
+
+
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+<div class="container mt-5" style="padding-bottom: 4rem;">
+  <div class="row">
+<!-- Profile Section -->
+    <div class="col-md-3">
+      <div class="card shadow-sm mb-4">
+          <div class="card-body text-center">
+              <h5 class="card-title">Welcome, {{ user.username }}</h5>
+              <!-- Profile Picture -->
+              {% if user.socialaccount_set.exists %}
+                  {% for account in user.socialaccount_set.all %}
+                      {% if account.provider == 'google' %}
+                          <img src="{{ account.extra_data.picture }}" alt="Profile Picture" class="img-thumbnail rounded-circle mb-3" style="max-width: 100px;">
+                      {% endif %}
+                  {% endfor %}
+              {% endif %}
+
+              <!-- Profile Information -->
+              <ul class="list-group list-group-flush text-left">
+                  <li class="list-group-item">
+                      <strong style="display: block;">Username:</strong>
+                      <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">{{ user.username }}</span>
+                  </li>
+                  <li class="list-group-item">
+                      <strong style="display: block;">Email:</strong>
+                      <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">{{ user.email }}</span>
+                  </li>
+                  <li class="list-group-item">
+                      <strong style="display: block;">First Name:</strong>
+                      <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">{{ user.first_name }}</span>
+                  </li>
+                  <li class="list-group-item">
+                      <strong style="display: block;">Last Name:</strong>
+                      <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">{{ user.last_name }}</span>
+                  </li>
+                  <li class="list-group-item">
+                      <strong style="display: block;">User Type:</strong>
+                      <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">PMA Administrator</span>
+                  </li>
+              </ul>
+          </div>
+
+
+      </div>
+      <!-- Friends List Section -->
+      <div class="card shadow-sm" style="max-width: 300px; flex-shrink: 0;">
+        <div class="card-body text-center">
+          <h4 class="card-title">Friends List</h4>
+          <div id="friends-list" class="overflow-auto" style="max-height: 400px;">
+            {% if friends %}
+              {% for friend in friends %}
+                <div id="friend-{{ friend.id }}" class="mb-3">
+                  <div class="card shadow-sm">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ friend.user.username }}</h5>
+                      <p class="card-text">{{ friend.user.email }}</p>
+                    </div>
+                    <div class="card-footer">
+                      <form action="{% url 'dashboard' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="remove_friend_id" value="{{ friend.id }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Remove Friend</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <p class="text-center">No friends found. Add friends using the "Add Friend" button.</p>
+            {% endif %}
+          </div>
+          <div class="text-center">
+            <!-- Add Friend Button -->
+            <button type="button" class="btn btn-primary btn-sm mt-3" style="width: 100px;" data-toggle="modal" data-target="#addFriendModal">
+              Add Friend
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <div class="col-md-9">
+    <!-- My Events Section -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h4 class="card-title">My Events</h4>
+
+        <!-- Add Event Button -->
+        <button type="button" class="btn btn-primary btn-sm mb-3" data-toggle="modal" data-target="#addEventModal">
+          Add Event
+        </button>
+
+        <!-- Event List Section -->
+        <div id="event-list" class="row">
+          {% if events %}
+            {% for event in events %}
+              <div id="event-{{ event.id }}" class="col-md-4 mb-4">
+                <div class="card h-100 shadow-sm"
+                    data-id="{{ event.id }}"
+                    data-title="{{ event.title }}"
+                    data-description="{{ event.description }}"
+                    data-date="{{ event.date }}">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <a href="{% url 'event_details' event.id %}">{{ event.title }}</a>
+                    </h5>
+                    <p class="card-text">{{ event.description }}</p>
+                    <p class="card-text"><small class="text-muted">Date: {{ event.date }}</small></p>
+                  </div>
+                  <div class="card-footer d-flex justify-content-between">
+                    <button class="btn btn-secondary btn-sm edit-btn" data-id="{{ event.id }}" style="width: 60px;">Edit</button>
+                    <button class="btn btn-danger btn-sm delete-btn" data-id="{{ event.id }}" style="width: 60px;">Delete</button>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+          <p id="no-events-message" class="col-12 text-center" {% if events %}style="display: none;"{% endif %}>
+            No events found. Click "Add Event" to create one.
+          </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  <!-- Friend's Events Section -->
+  <div class="card shadow-sm mb-3">
+    <!-- Main Flex Container for Friend's Events and Friends List -->
+    <div class="d-flex justify-content-between align-items-stretch">
+      <!-- Friend's Events Section -->
+
+        <div class="card-body">
+          <h4 class="card-title">Friend's Events</h4>
+          <div id="friend-events-list" class="row">
+            {% if friend_events %}
+              {% for event in friend_events %}
+                <div id="event-{{ event.id }}" class="col-md-4 mb-4">
+                  <div class="card h-100 shadow-sm"
+                      data-id="{{ event.id }}"
+                      data-title="{{ event.title }}"
+                      data-description="{{ event.description }}"
+                      data-date="{{ event.date }}">
+                    <div class="card-body">
+                      <h5 class="card-title">
+                        <a href="{% url 'event_details' event.id %}">{{ event.title }}</a>
+                      </h5>
+                      <p class="card-text">{{ event.user }}</p>
+                      <p class="card-text">{{ event.description }}</p>
+                      <p class="card-text"><small class="text-muted">Date: {{ event.date }}</small></p>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between">
+                      <button class="btn btn-secondary btn-sm edit-btn" data-id="{{ event.id }}" style="width: 60px;">Edit</button>
+                      <button class="btn btn-danger btn-sm delete-btn" data-id="{{ event.id }}" style="width: 60px;">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <p class="col-12 text-center">None of your friends have any upcoming events.</p>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+
+
+
+
+
+
+
+
+<!-- Add Friend Modal -->
+<div class="modal fade" id="addFriendModal" tabindex="-1" aria-labelledby="addFriendModalLabel" aria-hidden="true" >
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addFriendModalLabel">Add Friend</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true"></span>
+                </button>
+            </div>
+            <form action="{% url 'dashboard' %}" method="post" id="add-friend-form">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <label for="email">Enter your friends Email:</label>
+                    <input id="email" type="email" name="email" class="form-control" placeholder="user@example.com">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Add Friend</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Add Event Modal -->
+<div class="modal fade" id="addEventModal" tabindex="-1" aria-labelledby="addEventModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addEventModalLabel">Add New Event</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form id="add-event-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="title">Event Title</label>
+            <input type="text" name="title" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea name="description" class="form-control" required></textarea>
+          </div>
+          <div class="form-group">
+            <label for="date">Date</label>
+            <input type="datetime-local" name="date" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Save Event</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Edit Event Modal -->
+<div class="modal fade" id="editEventModal" tabindex="-1" aria-labelledby="editEventModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editEventModalLabel">Edit Event</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form id="edit-event-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="edit-title">Event Title</label>
+            <input type="text" id="edit-title" name="title" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-description">Description</label>
+            <textarea id="edit-description" name="description" class="form-control" required></textarea>
+          </div>
+          <div class="form-group">
+            <label for="edit-date">Date</label>
+            <input type="datetime-local" id="edit-date" name="date" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+
+
+
+<!-- Bootstrap JS and dependencies (jQuery and Popper.js) -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<!-- Event Action Scripts -->
+<script>
+  // CSRF token setup for AJAX in Django
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+  const csrftoken = getCookie('csrftoken');
+
+  // Function to handle adding, editing, and deleting events
+  document.addEventListener('DOMContentLoaded', () => {
+    // Add Event from Modal Form
+    document.getElementById('add-event-form').onsubmit = function (e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch("{% url 'add_event' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData,
+    })
+    .then((response) => response.json())
+    .then((data) => {
+        if (data.success) {
+            const eventList = document.getElementById('event-list');
+            const newEventCard = document.createElement('div');
+            newEventCard.id = `event-${data.id}`;
+            newEventCard.className = 'col-md-4 mb-4';
+            newEventCard.innerHTML = `
+                <div class="card h-100 shadow-sm" data-id="${data.id}" data-title="${data.title}" data-description="${data.description}" data-date="${data.date}">
+                  <div class="card-body">
+                      <h5 class="card-title">
+                          <a href="/dashboard/${data.id}/">${data.title}</a> <!-- Correctly dynamic link -->
+                      </h5>
+                      <p class="card-text">${data.description}</p>
+                      <p class="card-text"><small class="text-muted">Date: ${data.date}</small></p>
+                  </div>
+                  <div class="card-footer d-flex justify-content-between">
+                      <button class="btn btn-secondary btn-sm edit-btn" data-id="${data.id}">Edit</button>
+                      <button class="btn btn-danger btn-sm delete-btn" data-id="${data.id}">Delete</button>
+                  </div>
+                </div>
+            `;
+            eventList.appendChild(newEventCard);
+
+            // Reinitialize event listeners for the new elements
+            addEventListeners();
+
+            // Update the "No events found" message
+            updateNoEventsMessage();
+
+            // Reset the form and close the modal
+            document.getElementById('add-event-form').reset();
+            $('#addEventModal').modal('hide');
+        } else {
+            alert('Error adding event: ' + JSON.stringify(data.errors));
+        }
+    });
+};
+
+
+
+
+
+    // Function to handle opening the edit modal and submitting the edit form
+    function editEvent(eventId) {
+      const eventCard = document.getElementById(`event-${eventId}`).querySelector('.card');
+
+      // Extract data attributes
+      const eventTitle = eventCard.getAttribute('data-title');
+      const eventDescription = eventCard.getAttribute('data-description');
+      const eventDate = eventCard.getAttribute('data-date');
+
+      // Populate the edit form fields
+      document.getElementById('edit-title').value = eventTitle;
+      document.getElementById('edit-description').value = eventDescription;
+      document.getElementById('edit-date').value = eventDate;
+
+      // Store the event ID in the form for submission
+      document.getElementById('edit-event-form').dataset.eventId = eventId;
+
+      // Show the edit modal
+      $('#editEventModal').modal('show');
+    }
+
+    // Edit event form submission
+    document.getElementById('edit-event-form').onsubmit = function (e) {
+      e.preventDefault();
+      const eventId = this.dataset.eventId;
+      const formData = new FormData(this);
+
+      fetch(`/edit_event/${eventId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData,
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success) {
+            // Update the event card with the new data
+            const eventCard = document.getElementById(`event-${eventId}`).querySelector('.card');
+            eventCard.setAttribute('data-title', formData.get('title'));
+            eventCard.setAttribute('data-description', formData.get('description'));
+            eventCard.setAttribute('data-date', formData.get('date'));
+
+            // Update the display text on the card
+            eventCard.querySelector('.card-title').innerText = formData.get('title');
+            eventCard.querySelector('.card-text').innerText = formData.get('description');
+            eventCard.querySelector('.text-muted').innerText = `Date: ${formData.get('date')}`;
+
+            // Hide the edit modal
+            $('#editEventModal').modal('hide');
+          } else {
+            alert('Error editing event: ' + JSON.stringify(data.errors));
+          }
+        });
+    };
+
+    // Delete event function
+    function deleteEvent(eventId) {
+    fetch(`/delete_event/${eventId}/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+    })
+    .then((response) => response.json())
+    .then((data) => {
+        if (data.success) {
+            const eventCard = document.getElementById(`event-${eventId}`);
+            if (eventCard) {
+                eventCard.remove();
+            }
+
+            // Update the "No events found" message
+            updateNoEventsMessage();
+        } else {
+            alert('Error deleting event.');
+        }
+    });
+}
+
+
+    // Function to add event listeners for edit and delete buttons
+    function addEventListeners() {
+      document.querySelectorAll('.edit-btn').forEach((button) => {
+          button.addEventListener('click', () => {
+              const eventId = button.getAttribute('data-id');
+              editEvent(eventId);
+          });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach((button) => {
+          button.addEventListener('click', () => {
+              const eventId = button.getAttribute('data-id');
+              deleteEvent(eventId);
+          });
+      });
+
+      // Update the "No events found" message whenever the event list changes
+      updateNoEventsMessage();
+    }
+
+
+    function updateNoEventsMessage() {
+      const eventList = document.getElementById('event-list');
+      const noEventsMessage = document.getElementById('no-events-message');
+      const hasEvents = eventList.querySelectorAll('.card').length > 0;
+
+      if (noEventsMessage) {
+        noEventsMessage.style.display = hasEvents ? 'none' : 'block';
+      }
+    }
+
+
+
+    // Initialize event listeners when the page loads
+    addEventListeners();
+  });
+</script>
+
+
+
+<!-- Footer -->
+<footer style="margin-top: auto; width: 100%; background-color: #f8f9fa; padding: 1rem 0; position: fixed; bottom: 0; left: 0; text-align: center; box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);">
+  <div class="container">
+    <span style="color: #6c757d;">This system is a class project. The system is not monitored, and no real information should be submitted.</span>
+  </div>
+</footer>
+
+
+</body>
+
+
+</html>

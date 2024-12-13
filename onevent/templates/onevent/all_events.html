@@ -1,0 +1,161 @@
+{% load onevent_tags %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Admin Dashboard - OnEvent</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="/">OnEvent</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ml-auto">
+        <li class="nav-item"><a class="nav-link" href="{% url 'admin_dashboard' %}">All Events (Admin Only)</a></li>
+        <li class="nav-item"><a class="nav-link" href="/dashboard/">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'upload' %}">Upload</a></li>
+        <li class="nav-item">
+          <form action="{% url 'logout' %}" method="post" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="nav-link btn btn-link" style="padding: 10 0 0 0; border: none; background: none; color: inherit; cursor: pointer;">
+              Logout
+            </button>
+          </form>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  <!-- Main Content -->
+  <div class="container mt-5">
+    <!-- Sorting Options -->
+    <div class="row justify-content-center">
+      <div class="col-md-5">
+        <form method="get" action="{% url 'admin_dashboard' %}" class="form-inline mb-3">
+          <div class="form-group mr-2">
+            <label for="sort_by" class="mr-2">Sort by:</label>
+            <select name="sort_by" id="sort_by" class="form-control">
+              <option value="title" {% if request.GET.sort_by == 'title' %}selected{% endif %}>Title</option>
+              <option value="date" {% if request.GET.sort_by == 'date' %}selected{% endif %}>Date</option>
+              <option value="username" {% if request.GET.sort_by == 'username' %}selected{% endif %}>Username</option>
+            </select>
+          </div>
+          <div class="form-group mr-2">
+            <label for="order" class="mr-2">Order:</label>
+            <select name="order" id="order" class="form-control">
+              <option value="asc" {% if request.GET.order == 'asc' %}selected{% endif %}>Ascending</option>
+              <option value="desc" {% if request.GET.order == 'desc' %}selected{% endif %}>Descending</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Sort</button>
+        </form>
+      </div>
+    </div>
+
+    <h1 class="text-center">All Events</h1>
+    <hr>
+
+    <!-- Events Table -->
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Event ID</th>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Date</th>
+            <th>User</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in events %}
+          <tr>
+            <td>{{ event.id }}</td>
+            <td>{{ event.title }}</td>
+            <td>{{ event.description }}</td>
+            <td>{{ event.date }}</td>
+            <td>{{ event.user.username }}</td>
+            <td>
+              <!-- Edit Button -->
+              <button class="btn btn-secondary btn-sm" style="width: 60px;" data-toggle="modal" data-target="#editEventModal" data-id="{{ event.id }}" data-title="{{ event.title }}" data-description="{{ event.description }}" data-date="{{ event.date }}">
+                Edit
+              </button>
+              <!-- Delete Button -->
+              <form action="{% url 'admin_dashboard' %}" method="post" style="display: inline;">
+                {% csrf_token %}
+                <input type="hidden" name="delete_event" value="{{ event.id }}">
+                <button type="submit" class="btn btn-danger btn-sm" style="width: 60px;" >Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Edit Event Modal -->
+  <div class="modal fade" id="editEventModal" tabindex="-1" aria-labelledby="editEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editEventModalLabel">Edit Event</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <form id="edit-event-form" method="post" action="{% url 'admin_dashboard' %}">
+          {% csrf_token %}
+          <input type="hidden" name="event_id" id="edit-event-id">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="edit-title">Title</label>
+              <input type="text" name="title" id="edit-title" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label for="edit-description">Description</label>
+              <textarea name="description" id="edit-description" class="form-control" required></textarea>
+            </div>
+            <div class="form-group">
+              <label for="edit-date">Date</label>
+              <input type="datetime-local" name="date" id="edit-date" class="form-control" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <button type="submit" name="edit_event" value="event_id" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      $('#editEventModal').on('show.bs.modal', function (event) {
+        const button = $(event.relatedTarget);
+        const eventId = button.data('id');
+        const title = button.data('title');
+        const description = button.data('description');
+        const date = button.data('date');
+
+        $('#edit-event-id').val(eventId);
+        $('#edit-title').val(title);
+        $('#edit-description').val(description);
+        $('#edit-date').val(date);
+      });
+    });
+  </script>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
